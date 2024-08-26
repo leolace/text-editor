@@ -1,0 +1,48 @@
+<html>
+  <head>
+
+    <style>
+      * {
+	font-family: monospace;
+	margin: 0;
+	padding: 0;
+      }
+
+      #container {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 80rem;
+	height: 70rem;
+	background-color: #eee;
+	border: 2px solid #000;
+	display: grid;
+	cursor: text;
+      }
+
+      #row {
+	width: 100%;
+	display: flex;
+	font-size: 2rem;
+      }
+
+      #row:hover {
+	background-color: #fff;
+      }
+
+      span {
+	flex: 1;
+	display: block;
+
+      }
+
+    </style>
+
+  </head>
+
+  <body>
+    <div id="container"></div>
+    <script src="index.js"></script>
+  </body>
+</html>
