@@ -26,17 +26,18 @@ function createInput(row) {
         if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code))
             return;
         const rowIndex = Number(row.dataset.nth);
+        const thisRow = getRow(rowIndex);
         switch (e.code) {
             case "Backspace":
                 if (!Boolean(textElement.textContent) && row.contains(textElement))
                     deleteRow(row);
-                textElement.textContent = textElement.textContent?.slice(0, textElement.textContent?.length - 1) || null;
-                row.replaceChild(textElement, textElement);
-                input.style.left = `${getRow(rowIndex).textElement.offsetWidth + 2}px`;
-                updateRow(rowIndex, { activeColumnIndex: getRow(rowIndex).activeColumnIndex - 1 });
+                updateRow(rowIndex, { activeColumnIndex: thisRow.activeColumnIndex - 1, content: thisRow.content.slice(0, thisRow.content.length - 1) });
+                input.style.left = `${thisRow.textElement.offsetWidth + 2}px`;
                 break;
             case "Enter":
-                const newRow = createRow();
+                const resto = textElement.textContent?.slice(thisRow.activeColumnIndex) || "";
+                updateRow(rowIndex, { content: thisRow.content.splice(0, thisRow.activeColumnIndex) });
+                const newRow = createRow(resto);
                 container?.insertBefore(newRow, row.nextSibling);
                 newRow.click();
                 break;
@@ -58,34 +59,32 @@ function createInput(row) {
                 if (!activeInput || !activeRow)
                     return;
                 const leftValue = Number(activeInput.style.left.split("px")[0]);
-                updateRow(rowIndex, { activeColumnIndex: getRow(rowIndex).activeColumnIndex - 1 });
                 if (leftValue <= 10)
                     return;
+                updateRow(rowIndex, { activeColumnIndex: thisRow.activeColumnIndex - 1 });
                 activeInput.style.left = `${Number(leftValue - 16)}px`;
                 break;
             case "ArrowRight":
                 if (!activeInput || !activeRow)
                     return;
-                const leftValue2 = Number(activeInput.style.left.split("px")[0]);
-                if ((getRow(rowIndex).activeColumnIndex) >= (getRow(rowIndex).textElement.textContent.length || 0))
+                if (thisRow.activeColumnIndex >= thisRow.content.length)
                     return;
-                updateRow(rowIndex, { activeColumnIndex: getRow(rowIndex).activeColumnIndex + 1 });
+                const leftValue2 = Number(activeInput.style.left.split("px")[0]);
+                updateRow(rowIndex, { activeColumnIndex: thisRow.activeColumnIndex + 1 });
                 activeInput.style.left = `${Number(leftValue2 + 16)}px`;
                 break;
             default:
-                const thisRow = getRow(rowIndex);
-                const firstPart = textElement.textContent?.slice(0, thisRow.activeColumnIndex) || "";
-                const endPart = textElement.textContent?.slice(thisRow.activeColumnIndex) || "";
-                textElement.textContent = firstPart + e.key + endPart;
-                updateRow(rowIndex, { textElement: textElement,
-                    activeColumnIndex: getRow(rowIndex).activeColumnIndex + 1,
-                    content: [...thisRow.content, e.key] });
-                row.replaceChild(textElement, textElement);
-                input.style.left =
-                    `${(getRow(rowIndex).textElement.offsetWidth / getRow(rowIndex).textElement.textContent?.length || 0) * (getRow(rowIndex).activeColumnIndex)}px`;
+                const firstPart = thisRow.content.slice(0, thisRow.activeColumnIndex) || "";
+                const endPart = thisRow.content.slice(thisRow.activeColumnIndex) || "";
+                updateRow(rowIndex, {
+                    textElement: textElement,
+                    activeColumnIndex: thisRow.activeColumnIndex + 1,
+                    content: [...firstPart, e.key, ...endPart]
+                });
+                input.style.left = `${(thisRow.textElement.offsetWidth / (thisRow.content.length || 1)) * (thisRow.activeColumnIndex)}px`;
                 break;
         }
-        console.log(getRow(rowIndex).textElement.textContent[getRow(rowIndex).activeColumnIndex - 1]);
+        console.log(thisRow.content[thisRow.activeColumnIndex - 1]);
     });
     return input;
 }
@@ -102,7 +101,7 @@ function deleteRow(row) {
     if (container.lastElementChild && container.lastElementChild instanceof HTMLPreElement)
         container.lastElementChild.click();
 }
-function createRow() {
+function createRow(content) {
     if (!container)
         throw new Error("Container root not defined");
     const index = container.childElementCount.toString();
@@ -114,6 +113,7 @@ function createRow() {
     row.id = "row";
     row.dataset.nth = index;
     row.appendChild(textElement);
+    textElement.textContent = content || "";
     n.textContent = index;
     numbers?.appendChild(n);
     row.addEventListener("click", (e) => {
@@ -148,6 +148,9 @@ function removeInput(input, row) {
 }
 function updateRow(index, row) {
     rows[index] = { ...rows[index], ...row };
+    if (row?.content) {
+        rows[index].textElement.textContent = row.content.join("");
+    }
     return { ...rows[index], ...row };
 }
 function getRow(index) {
