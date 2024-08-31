@@ -9,43 +9,41 @@ const COLS_COUNT = WIDTH / 25;
 
 let activeRow: HTMLPreElement | null = null;
 let activeInput: HTMLInputElement | null = null;
+let rowCount = 0;
 
-const rows = Array(ROWS_COUNT).fill(Array(COLS_COUNT).fill(undefined));
+interface Row {
+  content: string[]
+  element: HTMLPreElement
+}
+
+let rows: Row[] = [];
+
+const UNSUPPORTED_KEYS = ["ShiftRight", "AltRight", "MetaRight", "ControlRight", "ShiftLeft", "AltLeft", "MetaLeft", "ControlLeft", "CapsLock", "Tab", "Delete", "Insert"];
+
+function getRowColumn(rowIndex: number) {
+  return (rows[rowIndex]?.content.length - 1) ?? 0;
+}
 
 function createInput(row: HTMLPreElement) {
   const input = document.createElement("input");
   const textElement = row.getElementsByTagName("p")[0] || document.createElement("p");
   input.value = textElement.textContent || "";
 
-  input.style.height = "0";
-  input.style.width = "0";
+  input.style.height = "40px";
+  input.style.width = "4px";
+  input.style.backgroundColor = "black";
   activeInput = input;
 
-  input.addEventListener("input", (e: Event) => {
-    if (!(e instanceof InputEvent)) return;
-    row.appendChild(textElement);
-    const { data, inputType } = e;
-
-    switch(inputType) {
-    case "insertText":
-      textElement.textContent = textElement.textContent?.concat(data!) || null;
-      row.replaceChild(textElement, textElement);
-      break;
-    case "deleteContentBackward":
-      textElement.textContent = textElement.textContent?.slice(0, textElement.textContent?.length - 1) || null;
-      row.replaceChild(textElement, textElement);
-      break;
-    }
-
-  });
-
   input.addEventListener("keydown", (e: Event) => {
-    if (!(e instanceof KeyboardEvent)) return;
-    console.log(e);
+    if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code)) return;
+    // console.log(e);
 
     switch(e.code) {
     case "Backspace":
       if(!Boolean(textElement.textContent) && row.contains(textElement)) deleteRow(row);
+
+      textElement.textContent = textElement.textContent?.slice(0, textElement.textContent?.length - 1) || null;
+      row.replaceChild(textElement, textElement);
       break;
     case "Enter":
       let nextElement = row.nextElementSibling;
@@ -56,6 +54,15 @@ function createInput(row: HTMLPreElement) {
       if (nextElement instanceof HTMLPreElement)
 	nextElement.click();
       break;
+    default:
+      rows[Number(row.dataset.nth as string)].content.push(e.key);
+      console.log(row.dataset.nth, getRowColumn(Number(row.dataset.nth)));
+
+      console.log(rows);
+
+      textElement.textContent = textElement.textContent?.concat(e.key) || null;
+      row.replaceChild(textElement, textElement);
+      break;
     }
   })
   
@@ -64,8 +71,12 @@ function createInput(row: HTMLPreElement) {
 
 function deleteRow(row: HTMLPreElement) {
   if (!container || !numbers) throw new Error("Container root not defined");
+  if (rowCount === 1) return;
+
+  rows = rows.filter(r => r.element !== row);
 
   container.removeChild(row);
+  rowCount--;
   const lastChildNumber = numbers.lastChild;
 
   if(lastChildNumber)
@@ -79,16 +90,24 @@ function createRow() {
   if (!container) throw new Error("Container root not defined");
   const index = container.childElementCount.toString()
   const row = document.createElement("pre");
+  const textElement = document.createElement("p");
   const n = document.createElement("span");
+
+  if (!rows[Number(row.dataset.nth as string)])
+    rows.push({content: [], element: row});
   
   row.id = "row";
   row.dataset.nth = index;
+  rowCount++;
+
+  row.appendChild(textElement);
 
   n.textContent = index;
 
   numbers?.appendChild(n);
 
   row.addEventListener("click", (e: FocusEvent) => {
+    console.log(getRowColumn(Number(row.dataset.nth)));
     if (!(e.currentTarget instanceof HTMLPreElement)) return;
     
     if (!activeRow) {
