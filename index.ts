@@ -2,18 +2,19 @@ const container = document.getElementById("container");
 const numbers = document.getElementById("numbers");
 if (!container) throw new Error("Container root not found");
 
-const WIDTH = 1000;
-const HEIGHT = 1000;
+const WIDTH = 1300;
+const HEIGHT = 800;
 const ROWS_COUNT = HEIGHT / 50;
 const COLS_COUNT = WIDTH / 25;
 
 let activeRow: HTMLPreElement | null = null;
 let activeInput: HTMLInputElement | null = null;
-let rowCount = 0;
 
 interface Row {
   content: string[]
   element: HTMLPreElement
+  textElement: HTMLParagraphElement
+  activeColumnIndex: number
 }
 
 let rows: Row[] = [];
@@ -36,7 +37,7 @@ function createInput(row: HTMLPreElement) {
 
   input.addEventListener("keydown", (e: Event) => {
     if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code)) return;
-    // console.log(e);
+    const rowIndex = Number(row.dataset.nth);
 
     switch(e.code) {
     case "Backspace":
@@ -44,26 +45,63 @@ function createInput(row: HTMLPreElement) {
 
       textElement.textContent = textElement.textContent?.slice(0, textElement.textContent?.length - 1) || null;
       row.replaceChild(textElement, textElement);
+      input.style.left = `${getRow(rowIndex).textElement.offsetWidth + 2}px`;
+      updateRow(rowIndex, { activeColumnIndex: getRow(rowIndex).activeColumnIndex - 1 })
       break;
     case "Enter":
-      let nextElement = row.nextElementSibling;
-      if (!nextElement) {
-	nextElement = createRow();
-	container?.append(nextElement);
+      const newRow = createRow();
+      container?.insertBefore(newRow, row.nextSibling);
+
+      newRow.click();
+      break;
+    case "ArrowUp":
+      const prevRow = row.previousElementSibling;
+      if (prevRow instanceof HTMLPreElement && activeInput) {
+	prevRow.click();
+	activeInput.style.left = `${getRow(Number(prevRow.dataset.nth)).textElement.offsetWidth + 18}px`;
       }
-      if (nextElement instanceof HTMLPreElement)
-	nextElement.click();
+      break;
+    case "ArrowDown":
+      const nextRow = row.nextElementSibling;
+      if (nextRow instanceof HTMLPreElement && activeInput) {
+	nextRow.click();
+	activeInput.style.left = `${getRow(Number(nextRow.dataset.nth)).textElement.offsetWidth + 18}px`;
+      }
+      break;
+    case "ArrowLeft":
+      if (!activeInput || !activeRow) return;
+      const leftValue = Number(activeInput.style.left.split("px")[0]);
+      updateRow(rowIndex, { activeColumnIndex: getRow(rowIndex).activeColumnIndex - 1 })
+      if (leftValue <= 10) return;
+      activeInput.style.left = `${Number(leftValue - 16)}px`;
+      break;
+    case "ArrowRight":
+      if (!activeInput || !activeRow) return;
+      const leftValue2 = Number(activeInput.style.left.split("px")[0]);
+      if ((getRow(rowIndex).activeColumnIndex) >= (getRow(rowIndex).textElement.textContent.length || 0)) return;
+      updateRow(rowIndex, { activeColumnIndex: getRow(rowIndex).activeColumnIndex + 1 })
+      activeInput.style.left = `${Number(leftValue2 + 16)}px`;
       break;
     default:
-      rows[Number(row.dataset.nth as string)].content.push(e.key);
-      console.log(row.dataset.nth, getRowColumn(Number(row.dataset.nth)));
+      const thisRow = getRow(rowIndex);
 
-      console.log(rows);
+      const firstPart = textElement.textContent?.slice(0, thisRow.activeColumnIndex) || "";
+      const endPart = textElement.textContent?.slice(thisRow.activeColumnIndex) || "";
 
-      textElement.textContent = textElement.textContent?.concat(e.key) || null;
+      textElement.textContent = firstPart + e.key + endPart;
+      
+      updateRow(rowIndex, { textElement: textElement,
+					   activeColumnIndex: getRow(rowIndex).activeColumnIndex + 1,
+					   content: [...thisRow.content, e.key] })
+
+      
       row.replaceChild(textElement, textElement);
+      input.style.left =
+	`${(getRow(rowIndex).textElement.offsetWidth / getRow(rowIndex).textElement.textContent?.length || 0) * (getRow(rowIndex).activeColumnIndex)}px`;
       break;
     }
+
+    console.log(getRow(rowIndex).textElement.textContent[getRow(rowIndex).activeColumnIndex - 1]);
   })
   
   return input
@@ -71,12 +109,11 @@ function createInput(row: HTMLPreElement) {
 
 function deleteRow(row: HTMLPreElement) {
   if (!container || !numbers) throw new Error("Container root not defined");
-  if (rowCount === 1) return;
+  if (rows.length === 1) return;
 
   rows = rows.filter(r => r.element !== row);
 
   container.removeChild(row);
-  rowCount--;
   const lastChildNumber = numbers.lastChild;
 
   if(lastChildNumber)
@@ -94,20 +131,15 @@ function createRow() {
   const n = document.createElement("span");
 
   if (!rows[Number(row.dataset.nth as string)])
-    rows.push({content: [], element: row});
+    rows.push({content: [], element: row, textElement: textElement, activeColumnIndex: 0});
   
   row.id = "row";
   row.dataset.nth = index;
-  rowCount++;
-
   row.appendChild(textElement);
-
   n.textContent = index;
-
   numbers?.appendChild(n);
 
   row.addEventListener("click", (e: FocusEvent) => {
-    console.log(getRowColumn(Number(row.dataset.nth)));
     if (!(e.currentTarget instanceof HTMLPreElement)) return;
     
     if (!activeRow) {
@@ -125,6 +157,9 @@ function createRow() {
     if (!activeInput) return;
     row.classList.add("active")
 
+    if (getRow(Number(index)).textElement.textContent?.length)
+      activeInput.style.left = `${getRow(Number(index)).textElement.offsetWidth + 16}px`
+
     row.appendChild(activeInput);
     activeInput.focus();
   })
@@ -139,13 +174,20 @@ function removeInput(input: HTMLInputElement | null, row: HTMLSpanElement) {
   activeInput = null;
 }
 
+function updateRow(index: number, row: Partial<Row>): Row {
+  rows[index] = {...rows[index], ...row};
+
+  return {...rows[index], ...row};
+}
+
+function getRow(index: number): Row {
+  return rows[index];
+}
+
 (() => {
-  const rows = [{text: ""}];
   container.style.height = HEIGHT.toString();
   container.style.width = WIDTH.toString();
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = createRow();
-    container.appendChild(row);
-  }
+  const row = createRow();
+  container.appendChild(row);
 })()
