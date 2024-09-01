@@ -166,7 +166,7 @@ function createRow(content?: string) {
     if (!activeInput) return;
     row.classList.add("active")
 
-    const leftValue = getRow(hash).activeColumnIndex * 15.5;
+    const leftValue = getRow(hash).activeColumnIndex * charWidth(getRow(hash));
     activeInput.style.left = `${leftValue}px`
 
     row.appendChild(activeInput);
