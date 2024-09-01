@@ -1,6 +1,5 @@
 "use strict";
 const container = document.getElementById("container");
-const numbers = document.getElementById("numbers");
 if (!container)
     throw new Error("Container root not found");
 const WIDTH = 1300;
@@ -9,10 +8,13 @@ const ROWS_COUNT = HEIGHT / 50;
 const COLS_COUNT = WIDTH / 25;
 let activeRow = null;
 let activeInput = null;
-let rows = [];
+const rows = new Map();
 const UNSUPPORTED_KEYS = ["ShiftRight", "AltRight", "MetaRight", "ControlRight", "ShiftLeft", "AltLeft", "MetaLeft", "ControlLeft", "CapsLock", "Tab", "Delete", "Insert"];
-function getRowColumn(rowIndex) {
-    return (rows[rowIndex]?.content.length - 1) ?? 0;
+function getRowColumn(hash) {
+    return rows.get(hash);
+}
+function charWidth(row) {
+    return row.textElement.offsetWidth / row.content.length;
 }
 function createInput(row) {
     const input = document.createElement("input");
@@ -23,100 +25,100 @@ function createInput(row) {
     input.style.backgroundColor = "black";
     activeInput = input;
     input.addEventListener("keydown", (e) => {
-        if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code))
+        const rowHash = row.getAttribute("hash");
+        if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code) || !activeInput || !activeRow || !rowHash)
             return;
-        const rowIndex = Number(row.dataset.nth);
-        const thisRow = getRow(rowIndex);
+        const thisRow = getRow(rowHash);
+        const leftValue = Number(activeInput?.style.left.split("px")[0] || 0);
         switch (e.code) {
             case "Backspace":
-                if (!Boolean(textElement.textContent) && row.contains(textElement))
-                    return deleteRow(rowIndex);
-                updateRow(rowIndex, { activeColumnIndex: thisRow.activeColumnIndex - 1, content: thisRow.content.slice(0, thisRow.content.length - 1) });
+                if (!Boolean(textElement.textContent)) {
+                    const prevElement = thisRow.element.previousElementSibling;
+                    const nextElement = thisRow.element.nextElementSibling;
+                    if (prevElement instanceof HTMLPreElement) {
+                        prevElement.click();
+                    }
+                    else if (nextElement instanceof HTMLPreElement) {
+                        nextElement.click();
+                    }
+                    deleteRow(thisRow.element.getAttribute("hash") || "");
+                    break;
+                }
+                ;
+                updateRow(rowHash, { activeColumnIndex: thisRow.activeColumnIndex - 1, content: thisRow.content.slice(0, thisRow.content.length - 1) });
                 input.style.left = `${thisRow.textElement.offsetWidth + 2}px`;
                 break;
             case "Enter":
-                const resto = textElement.textContent?.slice(thisRow.activeColumnIndex) || "";
-                updateRow(rowIndex, { content: thisRow.content.splice(0, thisRow.activeColumnIndex - 1) });
-                const newRow = createRow(resto);
+                const remainderContent = textElement.textContent?.slice(thisRow.activeColumnIndex) || "";
+                updateRow(rowHash, { content: thisRow.content.splice(0, thisRow.activeColumnIndex) });
+                const newRow = createRow(remainderContent);
                 container?.insertBefore(newRow, row.nextSibling);
                 newRow.click();
                 break;
             case "ArrowUp":
                 const prevRow = row.previousElementSibling;
-                if (prevRow instanceof HTMLPreElement && activeInput) {
+                if (prevRow instanceof HTMLPreElement) {
                     prevRow.click();
-                    activeInput.style.left = `${getRow(Number(prevRow.dataset.nth)).textElement.offsetWidth + 2}px`;
+                    activeInput.style.left = `${(getRow(prevRow.getAttribute("hash") || "").textElement.offsetWidth) + 2}px`;
                 }
                 break;
             case "ArrowDown":
                 const nextRow = row.nextElementSibling;
-                if (nextRow instanceof HTMLPreElement && activeInput) {
+                if (nextRow instanceof HTMLPreElement) {
                     nextRow.click();
-                    activeInput.style.left = `${getRow(Number(nextRow.dataset.nth)).textElement.offsetWidth + 2}px`;
+                    activeInput.style.left = `${getRow(nextRow.getAttribute("hash") || "").textElement.offsetWidth + 2}px`;
                 }
                 break;
             case "ArrowLeft":
-                if (!activeInput || !activeRow)
+                if (thisRow.activeColumnIndex === 0)
                     return;
-                const leftValue = Number(activeInput.style.left.split("px")[0]);
-                if (leftValue <= 10)
-                    return;
-                updateRow(rowIndex, { activeColumnIndex: thisRow.activeColumnIndex - 1 });
-                activeInput.style.left = `${Number(leftValue - 16)}px`;
+                updateRow(rowHash, { activeColumnIndex: thisRow.activeColumnIndex - 1 });
+                activeInput.style.left = `${Number(leftValue - charWidth(thisRow))}px`;
                 break;
             case "ArrowRight":
-                if (!activeInput || !activeRow)
-                    return;
                 if (thisRow.activeColumnIndex >= thisRow.content.length)
                     return;
-                const leftValue2 = Number(activeInput.style.left.split("px")[0]);
-                updateRow(rowIndex, { activeColumnIndex: thisRow.activeColumnIndex + 1 });
-                activeInput.style.left = `${Number(leftValue2 + 16)}px`;
+                updateRow(rowHash, { activeColumnIndex: thisRow.activeColumnIndex + 1 });
+                activeInput.style.left = `${Number(leftValue + charWidth(thisRow))}px`;
                 break;
             default:
                 const firstPart = thisRow.content.slice(0, thisRow.activeColumnIndex) || "";
                 const endPart = thisRow.content.slice(thisRow.activeColumnIndex) || "";
-                updateRow(rowIndex, {
+                const updatedRow = updateRow(rowHash, {
                     activeColumnIndex: thisRow.activeColumnIndex + 1,
                     content: [...firstPart, e.key, ...endPart]
                 });
-                input.style.left = `${(thisRow.textElement.offsetWidth / ((thisRow.content.length) || 1)) * (thisRow.activeColumnIndex)}px`;
+                input.style.left = `${charWidth(updatedRow) * (updatedRow.activeColumnIndex)}px`;
                 break;
         }
-        console.log(thisRow.content[thisRow.activeColumnIndex - 1]);
     });
     return input;
 }
-function deleteRow(index) {
-    if (!container || !numbers)
+function deleteRow(hash) {
+    if (!container)
         throw new Error("Container root not defined");
-    if (rows.length === 1)
+    if (rows.size === 1)
         return;
-    container.removeChild(rows[index].element);
-    const lastChildNumber = numbers.lastChild;
-    rows = rows.filter((_, i) => i !== index);
-    console.log(rows);
-    if (lastChildNumber)
-        numbers.removeChild(numbers.lastChild);
-    if (container.lastElementChild && container.lastElementChild instanceof HTMLPreElement)
-        container.lastElementChild.click();
+    const row = getRow(hash).element;
+    container.removeChild(row);
+    rows.delete(hash);
 }
 function createRow(content) {
     if (!container)
         throw new Error("Container root not defined");
-    const index = container.childElementCount.toString();
     const row = document.createElement("pre");
     const textElement = document.createElement("p");
-    const n = document.createElement("span");
-    if (!rows[Number(row.dataset.nth)])
-        rows.push({ content: content?.split("") || [], element: row, textElement: textElement, activeColumnIndex: content?.length || 0 });
+    const hash = String(Math.trunc(Math.random() * 10000));
+    rows.set(hash, {
+        content: content?.split("") || [],
+        element: row,
+        textElement: textElement,
+        activeColumnIndex: content?.length || 0
+    });
     row.id = "row";
-    row.dataset.nth = index;
-    row.setAttribute("hash", String(Math.trunc(Math.random() * 1000000)));
+    row.setAttribute("hash", hash);
     row.appendChild(textElement);
     textElement.textContent = content || "";
-    n.textContent = index;
-    numbers?.appendChild(n);
     row.addEventListener("click", (e) => {
         if (!(e.currentTarget instanceof HTMLPreElement))
             return;
@@ -124,8 +126,8 @@ function createRow(content) {
             activeRow = row;
             createInput(activeRow);
         }
-        if (e.currentTarget.dataset.nth !== activeRow.dataset.nth) {
-            removeInput(activeInput, activeRow);
+        if (e.currentTarget.getAttribute("hash") !== activeRow.getAttribute("hash")) {
+            deleteInput(activeInput, activeRow);
             activeRow.classList.remove("active");
             activeRow = row;
             createInput(activeRow);
@@ -133,28 +135,31 @@ function createRow(content) {
         if (!activeInput)
             return;
         row.classList.add("active");
-        const leftValue = getRow(Number(index)).content.length ? getRow(Number(index)).textElement.offsetWidth : 0;
+        const leftValue = getRow(hash).content.length ? getRow(hash).textElement.offsetWidth : 0;
         activeInput.style.left = `${leftValue}px`;
         row.appendChild(activeInput);
         activeInput.focus();
     });
     return row;
 }
-function removeInput(input, row) {
+function deleteInput(input, row) {
     if (!input)
         return;
     row.removeChild(input);
     activeInput = null;
 }
-function updateRow(index, row) {
-    rows[index] = { ...rows[index], ...row };
-    if (row?.content) {
-        rows[index].textElement.textContent = row.content.join("");
+function updateRow(hash, row) {
+    rows.set(hash, { ...getRow(hash), ...row });
+    if (row && row.content) {
+        getRow(hash).textElement.textContent = row.content.join("");
     }
-    return { ...rows[index], ...row };
+    return getRow(hash);
 }
-function getRow(index) {
-    return rows[index];
+function getRow(hash) {
+    const row = rows.get(hash);
+    if (!row)
+        throw new Error("Row not found");
+    return row;
 }
 (() => {
     container.style.height = HEIGHT.toString();
