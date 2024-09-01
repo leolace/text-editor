@@ -20,16 +20,19 @@ function createInput(row) {
     const input = document.createElement("input");
     const textElement = row.getElementsByTagName("p")[0] || document.createElement("p");
     input.value = textElement.textContent || "";
-    input.style.height = "40px";
-    input.style.width = "4px";
+    input.style.height = "30px";
+    input.style.width = "2px";
     input.style.backgroundColor = "black";
     activeInput = input;
+    let typingTimeout;
     input.addEventListener("keydown", (e) => {
         const rowHash = row.getAttribute("hash");
         if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code) || !activeInput || !activeRow || !rowHash)
             return;
         const thisRow = getRow(rowHash);
         const leftValue = Number(activeInput?.style.left.split("px")[0] || 0);
+        thisRow.element.classList.add("typing");
+        clearTimeout(typingTimeout);
         switch (e.code) {
             case "Backspace":
                 if (!Boolean(textElement.textContent)) {
@@ -53,6 +56,7 @@ function createInput(row) {
                 updateRow(rowHash, { content: thisRow.content.splice(0, thisRow.activeColumnIndex) });
                 const newRow = createRow(remainderContent);
                 container?.insertBefore(newRow, row.nextSibling);
+                updateRow(newRow.hash, { activeColumnIndex: 0 });
                 newRow.click();
                 break;
             case "ArrowUp":
@@ -91,6 +95,9 @@ function createInput(row) {
                 input.style.left = `${charWidth(updatedRow) * (updatedRow.activeColumnIndex)}px`;
                 break;
         }
+        typingTimeout = setTimeout(() => {
+            thisRow.element.classList.remove("typing");
+        }, 200);
     });
     return input;
 }
@@ -106,9 +113,9 @@ function deleteRow(hash) {
 function createRow(content) {
     if (!container)
         throw new Error("Container root not defined");
-    const row = document.createElement("pre");
-    const textElement = document.createElement("p");
     const hash = String(Math.trunc(Math.random() * 10000));
+    const row = Object.assign(document.createElement("pre"), { hash });
+    const textElement = document.createElement("p");
     rows.set(hash, {
         content: content?.split("") || [],
         element: row,
@@ -135,7 +142,7 @@ function createRow(content) {
         if (!activeInput)
             return;
         row.classList.add("active");
-        const leftValue = getRow(hash).content.length ? getRow(hash).textElement.offsetWidth : 0;
+        const leftValue = getRow(hash).activeColumnIndex * 15.5;
         activeInput.style.left = `${leftValue}px`;
         row.appendChild(activeInput);
         activeInput.focus();

@@ -64,8 +64,16 @@
       }
       
       input {
-	animation: 2s blink infinite;
 	position: absolute;
+	border-radius: none;
+	border: none;
+	outline: none;
+      }
+
+      #row:not(.typing) {
+      input {
+      animation: 2s blink infinite;
+      }
       }
       
       @keyframes blink {
