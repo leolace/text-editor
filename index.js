@@ -14,7 +14,7 @@ function getRowColumn(hash) {
     return rows.get(hash);
 }
 function charWidth(row) {
-    return row.textElement.offsetWidth / row.content.length;
+    return (row.textElement.offsetWidth / row.content.length) || 0;
 }
 function createInput(row) {
     const input = document.createElement("input");
@@ -48,8 +48,19 @@ function createInput(row) {
                     break;
                 }
                 ;
-                updateRow(rowHash, { activeColumnIndex: thisRow.activeColumnIndex - 1, content: thisRow.content.slice(0, thisRow.content.length - 1) });
-                input.style.left = `${thisRow.textElement.offsetWidth + 2}px`;
+                if (textElement.textContent && thisRow.activeColumnIndex === 0) {
+                    const prevRow = thisRow.element.previousElementSibling;
+                    if (!prevRow)
+                        return;
+                    updateRow(prevRow.hash, { content: [...getRow(prevRow.hash).content, textElement.textContent], activeColumnIndex: prevRow.textContent?.length });
+                    prevRow.click();
+                    deleteRow(thisRow.element.getAttribute("hash") || "");
+                    break;
+                }
+                const beforeCursor = thisRow.content.slice(0, thisRow.activeColumnIndex - 1);
+                const afterCursor = thisRow.content.slice(thisRow.activeColumnIndex);
+                const updatedRow2 = updateRow(rowHash, { activeColumnIndex: thisRow.activeColumnIndex - 1, content: [...beforeCursor, ...afterCursor] });
+                input.style.left = `${updatedRow2.activeColumnIndex * charWidth(updatedRow2)}px`;
                 break;
             case "Enter":
                 const remainderContent = textElement.textContent?.slice(thisRow.activeColumnIndex) || "";
@@ -104,10 +115,10 @@ function createInput(row) {
 function deleteRow(hash) {
     if (!container)
         throw new Error("Container root not defined");
-    if (rows.size === 1)
+    const row = getRow(hash);
+    if (rows.size === 1 && row.activeColumnIndex === 0)
         return;
-    const row = getRow(hash).element;
-    container.removeChild(row);
+    container.removeChild(row.element);
     rows.delete(hash);
 }
 function createRow(content) {
