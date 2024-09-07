@@ -1,13 +1,15 @@
 "use strict";
 const container = document.getElementById("container");
-if (!container)
+const wrapper = document.getElementById("wrapper");
+if (!container || !wrapper)
     throw new Error("Container root not found");
-const WIDTH = 1300;
+const WIDTH = 1400;
 const HEIGHT = 800;
 const ROWS_COUNT = HEIGHT / 50;
 const COLS_COUNT = WIDTH / 25;
 let activeRow = null;
 let activeInput = null;
+let activeColumn = 0;
 const rows = new Map();
 let typingTimeout;
 const UNSUPPORTED_KEYS = ["ShiftRight", "AltRight", "MetaRight", "ControlRight", "ShiftLeft", "AltLeft", "MetaLeft", "ControlLeft", "CapsLock", "Tab", "Delete", "Insert"];
@@ -17,128 +19,137 @@ function getRowColumn(hash) {
 function charWidth(row) {
     return (row.textElement.offsetWidth / row.content.length) || 0;
 }
-function handleKey(e, row) {
-    const rowHash = row.getAttribute("hash");
-    if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code) || !activeInput || !activeRow || !rowHash)
+function handleKey(e, hash) {
+    if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code) || !activeInput || !activeRow)
         return;
-    const leftValue = Number(activeInput?.style.left.split("px")[0] || 0);
-    getRow(rowHash).element.classList.add("typing");
+    getRow(hash).element.classList.add("typing");
     clearTimeout(typingTimeout);
     switch (e.code) {
         case "Backspace":
-            if (!Boolean(getRow(rowHash).textElement.textContent)) {
-                const prevElement = getRow(rowHash).element.previousElementSibling;
-                const nextElement = getRow(rowHash).element.nextElementSibling;
+            if (!Boolean(getRow(hash).textElement.textContent)) {
+                const prevElement = getRow(hash).element.previousElementSibling;
+                const nextElement = getRow(hash).element.nextElementSibling;
                 if (prevElement instanceof HTMLPreElement) {
                     prevElement.click();
                 }
                 else if (nextElement instanceof HTMLPreElement) {
                     nextElement.click();
                 }
-                deleteRow(getRow(rowHash).element.getAttribute("hash") || "");
+                deleteRow(getRow(hash).element.getAttribute("hash") || "");
                 break;
             }
             ;
-            if (getRow(rowHash).textElement.textContent && getRow(rowHash).activeColumnIndex === 0) {
-                const prevRow = getRow(rowHash).element.previousElementSibling;
+            if (getRow(hash).textElement.textContent && activeColumn === 0) {
+                const prevRow = getRow(hash).element.previousElementSibling;
                 if (!prevRow)
                     return;
                 updateRow(prevRow.hash, {
-                    content: [...getRow(prevRow.hash).content, getRow(rowHash).textElement.textContent || ""],
-                    activeColumnIndex: prevRow.textContent?.length
+                    content: [...getRow(prevRow.hash).content, getRow(hash).textElement.textContent || ""],
                 });
                 prevRow.click();
-                deleteRow(getRow(rowHash).element.getAttribute("hash") || "");
+                activeInput.style.left = `${activeColumn * charWidth(getRow(prevRow.hash))}px`;
+                deleteRow(getRow(hash).element.getAttribute("hash") || "");
                 break;
             }
-            const beforeCursor = getRow(rowHash).content.slice(0, getRow(rowHash).activeColumnIndex - 1);
-            const afterCursor = getRow(rowHash).content.slice(getRow(rowHash).activeColumnIndex);
-            const updatedRow2 = updateRow(rowHash, {
-                activeColumnIndex: getRow(rowHash).activeColumnIndex - 1,
-                content: [...beforeCursor, ...afterCursor]
-            });
-            activeInput.style.left = `${updatedRow2.activeColumnIndex * charWidth(updatedRow2)}px`;
+            const beforeCursor = getRow(hash).content.slice(0, activeColumn - 1);
+            const afterCursor = getRow(hash).content.slice(activeColumn);
+            updateRow(hash, { content: [...beforeCursor, ...afterCursor] });
+            activeColumn -= 1;
+            activeInput.style.left = `${activeColumn * charWidth(getRow(hash))}px`;
             break;
         case "Enter":
-            const remainderContent = getRow(rowHash).textElement.textContent?.slice(getRow(rowHash).activeColumnIndex) || "";
-            updateRow(rowHash, { content: getRow(rowHash).content.splice(0, getRow(rowHash).activeColumnIndex) });
+            activeRow?.element.classList.remove("typing");
+            const remainderContent = getRow(hash).textElement.textContent?.slice(activeColumn) || "";
+            updateRow(hash, { content: getRow(hash).content.splice(0, activeColumn) });
             const newRow = createRow(remainderContent);
-            container?.insertBefore(newRow, row.nextSibling);
-            updateRow(newRow.hash, { activeColumnIndex: 0 });
+            container?.insertBefore(newRow, getRow(hash).element.nextSibling);
+            activeColumn = 0;
             newRow.click();
             break;
         case "ArrowUp":
-            const prevRow = row.previousElementSibling;
+            activeRow?.element.classList.remove("typing");
+            const prevRow = getRow(hash).element.previousElementSibling;
             if (prevRow instanceof HTMLPreElement) {
                 prevRow.click();
-                activeInput.style.left = `${(getRow(prevRow.getAttribute("hash") || "").textElement.offsetWidth) + 2}px`;
             }
             break;
         case "ArrowDown":
-            const nextRow = row.nextElementSibling;
+            activeRow?.element.classList.remove("typing");
+            const nextRow = getRow(hash).element.nextElementSibling;
             if (nextRow instanceof HTMLPreElement) {
                 nextRow.click();
-                activeInput.style.left = `${getRow(nextRow.getAttribute("hash") || "").textElement.offsetWidth + 2}px`;
             }
             break;
         case "ArrowLeft":
-            if (getRow(rowHash).activeColumnIndex === 0)
+            if (activeColumn === 0)
                 return;
-            updateRow(rowHash, { activeColumnIndex: getRow(rowHash).activeColumnIndex - 1 });
-            activeInput.style.left = `${Number(leftValue - charWidth(getRow(rowHash)))}px`;
+            activeColumn -= 1;
+            activeInput.style.left = `${activeColumn * charWidth(getRow(hash))}px`;
             break;
         case "ArrowRight":
-            if (getRow(rowHash).activeColumnIndex >= getRow(rowHash).content.length)
+            if (activeColumn >= getRow(hash).content.length)
                 return;
-            updateRow(rowHash, { activeColumnIndex: getRow(rowHash).activeColumnIndex + 1 });
-            activeInput.style.left = `${Number(leftValue + charWidth(getRow(rowHash)))}px`;
+            activeColumn += 1;
+            activeInput.style.left = `${activeColumn * charWidth(getRow(hash))}px`;
             break;
         default:
-            const firstPart = getRow(rowHash).content.slice(0, getRow(rowHash).activeColumnIndex) || "";
-            const endPart = getRow(rowHash).content.slice(getRow(rowHash).activeColumnIndex) || "";
-            const updatedRow = updateRow(rowHash, {
-                activeColumnIndex: getRow(rowHash).activeColumnIndex + 1,
-                content: [...firstPart, e.key, ...endPart]
-            });
-            activeInput.style.left = `${charWidth(updatedRow) * (updatedRow.activeColumnIndex)}px`;
+            const firstPart = getRow(hash).content.slice(0, activeColumn) || "";
+            const endPart = getRow(hash).content.slice(activeColumn) || "";
+            updateRow(hash, { content: [...firstPart, e.key, ...endPart] });
+            activeColumn += 1;
+            activeInput.style.left = `${activeColumn * charWidth(getRow(hash))}px`;
             break;
     }
-    console.log(getRow(rowHash).content[getRow(rowHash).activeColumnIndex - 1]);
     typingTimeout = setTimeout(() => {
-        getRow(rowHash).element.classList.remove("typing");
+        activeRow?.element.classList.remove("typing");
     }, 200);
+    setLoc();
+}
+function setLoc() {
+    const loc = document.getElementById("loc");
+    if (!loc)
+        throw new Error("Location container not found");
+    const activeRowIndex = activeRow ? Array.from(rows.keys()).indexOf(activeRow.hash) : 0;
+    loc.textContent = `${activeRowIndex}:${activeColumn}`;
 }
 function createInput(row) {
     const input = document.createElement("input");
-    const textElement = row.getElementsByTagName("p")[0] || document.createElement("p");
-    input.value = textElement.textContent || "";
+    input.value = row.content.join("");
     input.style.height = "30px";
-    input.style.width = "2px";
-    input.style.backgroundColor = "black";
+    input.style.width = "16px";
+    input.style.backgroundColor = "#bbb";
+    input.autocomplete = "off";
+    input.spellcheck = false;
     activeInput = input;
-    input.addEventListener("keydown", (e) => handleKey(e, row));
+    input.addEventListener("keydown", (e) => handleKey(e, row.hash));
     return input;
 }
 function deleteRow(hash) {
     if (!container)
         throw new Error("Container root not defined");
     const row = getRow(hash);
-    if (rows.size === 1 && row.activeColumnIndex === 0)
+    if (rows.size === 1 && activeColumn === 0)
         return;
     container.removeChild(row.element);
     rows.delete(hash);
 }
+function generateHash() {
+    const hash = String(Math.trunc(Math.random() * 100_000));
+    if (document.querySelector(`[hash="${hash}"]`))
+        return generateHash();
+    return hash;
+}
 function createRow(content) {
     if (!container)
         throw new Error("Container root not defined");
-    const hash = String(Math.trunc(Math.random() * 10000));
+    const hash = generateHash();
     const row = Object.assign(document.createElement("pre"), { hash });
     const textElement = document.createElement("p");
     rows.set(hash, {
+        hash,
         content: content?.split("") || [],
         element: row,
         textElement: textElement,
-        activeColumnIndex: content?.length || 0
     });
     row.id = "row";
     row.setAttribute("hash", hash);
@@ -148,29 +159,37 @@ function createRow(content) {
         if (!(e.currentTarget instanceof HTMLPreElement))
             return;
         if (!activeRow) {
-            activeRow = row;
+            activeRow = getRow(row.hash);
             createInput(activeRow);
         }
-        if (e.currentTarget.getAttribute("hash") !== activeRow.getAttribute("hash")) {
+        if (e.currentTarget.getAttribute("hash") !== activeRow.hash) {
             deleteInput(activeInput, activeRow);
-            activeRow.classList.remove("active");
-            activeRow = row;
+            activeRow.element.classList.remove("active");
+            activeRow = getRow(row.hash);
             createInput(activeRow);
         }
         if (!activeInput)
             return;
         row.classList.add("active");
-        const leftValue = getRow(hash).activeColumnIndex * charWidth(getRow(hash));
+        if (getRow(row.hash).content.length < activeColumn)
+            activeColumn = getRow(row.hash).content.length;
+        const leftValue = activeColumn * charWidth(getRow(hash));
         activeInput.style.left = `${leftValue}px`;
         row.appendChild(activeInput);
         activeInput.focus();
     });
+    addNumbering();
     return row;
+}
+function addNumbering() {
+    const n = document.createElement("span");
+    n.textContent = String(rows.size);
+    document.getElementById("numbering")?.appendChild(n);
 }
 function deleteInput(input, row) {
     if (!input)
         return;
-    row.removeChild(input);
+    row.element.removeChild(input);
     activeInput = null;
 }
 function updateRow(hash, row) {
@@ -187,8 +206,16 @@ function getRow(hash) {
     return row;
 }
 (() => {
-    container.style.height = HEIGHT.toString();
-    container.style.width = WIDTH.toString();
+    wrapper.style.height = HEIGHT.toString();
+    wrapper.style.width = WIDTH.toString();
+    const loc = document.createElement("div");
+    loc.id = "loc";
+    const numbering = document.createElement("div");
+    numbering.id = "numbering";
     const row = createRow();
     container.appendChild(row);
+    wrapper.appendChild(numbering);
+    wrapper.appendChild(loc);
+    setLoc();
+    addNumbering();
 })();

@@ -1,0 +1,115 @@
+* {
+  font-family: "Roboto Mono", monospace;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+#wrapper {
+  display: grid;
+  position: relative;
+  background-color: #eee;
+  border: 2px solid #bbb;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  border-radius: 0.25rem;
+  overflow: auto;
+  margin: 0 auto;
+  margin-top: 3rem;
+  width: 100%;
+}
+
+#container {
+  display: grid;
+  overflow: scroll;
+  align-content: start;
+  grid-column: 2;
+  width: 100%;
+}
+
+#container::-webkit-scrollbar {
+  display: none;
+}
+
+#row {
+  width: 100%;
+  display: flex;
+  font-size: 1.5rem;
+  align-self: start;
+  height: 3.5rem;
+  cursor: text;
+  position: relative;
+  border: none;
+}
+
+#row p {
+  z-index: 1;
+}
+
+#row.active {
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+
+#row p, input {
+  align-self: center;
+}
+
+input {
+  position: absolute;
+  border-radius: none;
+  border: none;
+  outline: none;
+  z-index: 0;
+  color: transparent;
+}
+
+#row:not(.typing) {
+  input {
+    animation: 2s blink infinite;
+  }
+}
+
+#loc {
+  background-color: #ddd;
+  font-size: 1.5rem;
+  padding: 1rem;
+  border-top: 1px solid #bbb;
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 10;
+  grid-column: 1 / -1;
+  align-self: end;
+}
+
+#numbering {
+  height: 100%;
+  width: 2rem;
+  background-color: #ddd;
+  border-right: 1px solid #bbb;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  display: grid;
+  align-content: start;
+
+  span {
+    display: flex;
+    height: 3.5rem;
+    justify-self: center;
+    align-items: center;
+    font-weight: 600;
+  }
+}
+
+@keyframes blink {
+  0%, 49% {
+    opacity: 1;
+  }
+
+  50%, 100% {
+    opacity: 0;
+  }
+}
