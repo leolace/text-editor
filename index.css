@@ -10,7 +10,7 @@
   display: grid;
   position: relative;
   background-color: #eee;
-  border: 2px solid #bbb;
+  border: 1px solid #bbb;
   grid-template-columns: auto 1fr;
   grid-template-rows: 1fr auto;
   border-radius: 0.25rem;
@@ -22,7 +22,6 @@
 
 #container {
   display: grid;
-  overflow: scroll;
   align-content: start;
   grid-column: 2;
   width: 100%;
