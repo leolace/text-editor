@@ -1,0 +1,85 @@
+class NodeA {
+  next: null | NodeA = null;
+  data: any = null;
+
+  constructor(data: any) {
+    this.data = data;
+  }
+  
+}
+
+class Stack {
+  stack: any[] = [];
+  index: number = 0;
+  top: NodeA | null = null;
+
+  constructor(node: NodeA | null = null) {
+    this.top = node;
+  }
+
+  push(data: any) {
+    const node = new NodeA(data);
+
+    node.next = this.top;
+    this.top = node;
+    this.index++;
+  }
+
+  size() {
+    return this.index;
+  }
+
+  pop() {
+    if (this.isEmpty() || this.top === null) throw new Error("Stack is empty");
+
+    const tempNode = this.top;
+    const tempData = tempNode.data;
+
+    this.top = tempNode.next;
+    this.index--;
+
+    return tempData;
+  }
+
+  isEmpty() {
+    return this.size() === 0;
+  }
+
+  clear() {
+    this.index = -1;
+  }
+}
+
+const delimiters = {
+  "(": ")",
+  "{": "}",
+  "[": "]"
+};
+export const CLOSIGN = Object.values(delimiters);
+export const OPENING = Object.keys(delimiters);
+
+export function parse(target: string[][]) {
+  const stack = new Stack();
+
+  const isOpening = (char: string) => OPENING.includes(char);
+  const isClosing = (char: string) => CLOSIGN.includes(char);
+
+  type Cords = { columnIndex: number, rowIndex: number };
+  const result: { opening: Cords, closing: Cords }[] = [];
+  
+  target.forEach((row, rowIndex) => {
+    row.forEach((char, columnIndex) => {
+      if (!(OPENING.includes(char) || CLOSIGN.includes(char))) return;
+      if (isOpening(char)) {
+	stack.push({ char, rowIndex, columnIndex });
+      } else if (isClosing(char)) {
+	const top = stack.top;
+	if (!top || delimiters[top.data.char as keyof typeof delimiters] !== char) return;
+	result.push({ opening: { columnIndex: top.data.columnIndex, rowIndex: top.data.rowIndex }, closing: { columnIndex, rowIndex } });
+	stack.pop();
+      }
+    })
+  })
+
+  return result;
+}

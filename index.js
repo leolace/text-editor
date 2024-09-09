@@ -1,4 +1,5 @@
 import { getContent } from "./app.js";
+import { parse } from "./closign-bracket.js";
 const container = document.getElementById("container");
 const wrapper = document.getElementById("wrapper");
 if (!container || !wrapper)
@@ -32,6 +33,11 @@ function handleKey(e, hash) {
     if (!(e instanceof KeyboardEvent) || UNSUPPORTED_KEYS.includes(e.code) || !activeInput || !activeRow)
         return;
     getRow(hash).element.classList.add("typing");
+    const array = [];
+    Array.from(rows).forEach((r, i) => {
+        array[i] = r[1].content;
+    });
+    console.log(parse(array));
     clearTimeout(typingTimeout);
     switch (e.code) {
         case "Backspace":
@@ -45,7 +51,6 @@ function handleKey(e, hash) {
                     nextElement.click();
                 }
                 deleteRow(getRow(hash).element.getAttribute("hash") || "");
-                activeRowIndex -= 1;
                 loadNumbering();
                 break;
             }
@@ -58,7 +63,6 @@ function handleKey(e, hash) {
                     content: [...getRow(prevRow.hash).content, ...getRow(hash).textElement.textContent?.split("") || ""],
                 });
                 deleteRow(hash);
-                activeRowIndex -= 1;
                 loadNumbering();
                 break;
             }
@@ -76,7 +80,7 @@ function handleKey(e, hash) {
             container?.insertBefore(newRow, getRow(hash).element.nextSibling);
             activeRowIndex += 1;
             activeColumnIndex = 0;
-            newRow.click();
+            focusRow(getRow(newRow.hash), { column: 0 });
             loadNumbering();
             break;
         case "ArrowUp":
