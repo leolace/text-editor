@@ -26,7 +26,8 @@ const rows: Map<string, Row> = new Map();
 
 const UNSUPPORTED_KEYS = ["ShiftRight", "AltRight", "MetaRight", "ControlRight", "ShiftLeft", "AltLeft", "MetaLeft", "ControlLeft", "CapsLock", "Tab", "Delete", "Insert"];
 
-function loadCharWidth() {
+async function loadCharWidth() {
+  await document.fonts.load("16px Roboto Mono");
   const char = document.createElement("span");
   char.style.font = "1.5rem Roboto Mono, monospace";
   char.textContent = "0";
@@ -295,8 +296,8 @@ function focusRow(row: Row, { column }: { column?: number } = {}) {
   }
 }
 
-(() => {
-  loadCharWidth();
+(async () => {
+  await loadCharWidth();
   wrapper.style.height = HEIGHT.toString();
   wrapper.style.width = WIDTH.toString();
 
